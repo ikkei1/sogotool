@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>統合ファイルユーティリティ</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.23.9/docxtemplater.min.js"></script>
+  <script src="mammoth.browser.min.js"></script> 
+  
+  <style>
+    /* last.html のスタイルをベースに統一 */
+    body { 
+      font-family: Arial, sans-serif; 
+      margin: 0;
+      padding: 0;
+      background-color: #f0f0f0;
+      display: flex;
+      height: 100vh;
+    }
+    #left-panel {
+      width: 25%; /* ツール選択用に調整 */
+      padding: 20px;
+      background-color: #fff;
+      border-right: 1px solid #ddd;
+      overflow-y: auto;
+      box-sizing: border-box;
+    }
+    #right-panel {
+      width: 75%; /* メインコンテンツ用に調整 */
+      padding: 0;
+      background-color: #f9f9f9;
+      overflow-y: auto;
+      box-sizing: border-box;
+    }
+    h1 { text-align: center; margin-top: 0; }
+    h2 { border-bottom: 2px solid #ddd; padding-bottom: 5px; }
+
+    /* モジュール切替ボタンのスタイル */
+    #module-selector button {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #4CAF50;
+      background-color: white;
+      color: #4CAF50;
+      cursor: pointer;
+      font-size: 1em;
+    }
+    #module-selector button:hover {
+      background-color: #f0fff0;
+    }
+    #module-selector button.active {
+      background-color: #4CAF50;
+      color: white;
+    }
+
+    /* 各モジュールのコンテナスタイル */
+    .module {
+      display: none;
+      padding: 20px;
+      height: 100%;
+      box-sizing: border-box;
+    }
+    .module.active {
+      display: block;
+    }
+
+    /* Text Viewer / last.html のスタイル */
+    #tv-text-container { 
+      margin: 20px 0;
+      height: 60vh;
+      overflow-y: scroll;
+      background-color: #fff;
+      padding: 10px;
+      border: 1px solid #ddd;
+    }
+    #tv-file-name { margin-top: 10px; font-style: italic; }
+    #tv-file-path-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    #tv-file-path { 
+      font-size: 1.2em;
+      color: #333;
+      word-break: break-all;
+      margin: 10px 0;
+    }
+    #tv-playlist { 
+      height: 20vh;
+      overflow-y: scroll;
+      border: 1px solid #ddd;
+      margin-top: 10px;
+    }
+    #tv-playlist div { 
+      padding: 5px; 
+      cursor: pointer;
+    }
+    #tv-playlist div:hover { background-color: #ddd; }
+    #tv-playlist .current { background-color: #4CAF50; color: white; }
+    mark { background-color: yellow; }
+    .tv-control-button {
+      padding: 5px 10px;
+      cursor: pointer;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+    }
+    #tv-copy-button {
+      margin-left: 10px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+    }
+
+    /* Media Viewer / test.html のスタイルを Text Viewer に合わせる */
+    #mv-media-container {
+      margin: 20px 0;
+      text-align: center;
+      height: 60vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #ddd;
+    }
+    #mv-media-container img, #mv-media-container video {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+    #mv-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+    }
+    .mv-control-button {
+      padding: 5px 10px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    #mv-playlist {
+      height: 20vh;
+      overflow-y: scroll;
+      border: 1px solid #ddd;
+      margin-top: 10px;
+    }
+    #mv-playlist div {
+      padding: 5px;
+      cursor: pointer;
+    }
+    #mv-playlist div:hover { background-color: #ddd; }
+    #mv-playlist .current { background-color: #4CAF50; color: white; }
+    #mv-file-name { margin-top: 10px; font-style: italic; }
+    
+    /* DOCX Converter のスタイル */
+    #dc-convertButton {
+      padding: 10px 15px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    #dc-downloadLink {
+      display: block;
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #28a745;
+      color: white;
+      text-align: center;
+      text-decoration: none;
+    }
+
+    /* Non-PNG Detector のスタイル */
+    #npd-fileList {
+      list-style-type: none;
+      padding: 0;
+      margin-top: 10px;
+      height: 70vh;
+      overflow-y: scroll;
+      border: 1px solid #ddd;
+    }
+    #npd-fileList li {
+      padding: 8px;
+      border-bottom: 1px dotted #eee;
+    }
+    #npd-fileList a {
+      color: #333;
+      text-decoration: none;
+    }
+    #npd-fileList a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+<div id="left-panel">
+  <h1>統合ツールメニュー</h1>
+  <div id="module-selector">
+    <button id="btn-text-viewer" onclick="showModule('text-viewer')">テキストビューア</button>
+    <button id="btn-media-viewer" onclick="showModule('media-viewer')">メディアビューア</button>
+    <button id="btn-docx-converter" onclick="showModule('docx-converter')">DOCX to TXT 変換</button>
+    <button id="btn-non-png-detector" onclick="showModule('non-png-detector')">非PNGファイル検出</button>
+    <button id="btn-video-frame-saver" onclick="showModule('video-frame-saver')">動画フレーム保存</button>
+  </div>
+</div>
+
+<div id="right-panel">
+  
+  <div id="text-viewer" class="module active">
+    <h1>テキストビューア (.docx, .txt)</h1>
+    <div id="tv-file-input-container">
+      <input type="file" id="tv-file-input" webkitdirectory directory multiple>
+    </div>
+    <div id="tv-search-container">
+      <input type="text" id="tv-search-input" placeholder="すべてのファイルから検索..." oninput="tvFilterText()">
+    </div>
+    
+    <div id="tv-media-info">
+        <p>ファイル数: <span id="tv-total-media">0</span> | 現在表示中: <span id="tv-current-media">0</span></p>
+    </div>
+    
+    <div id="tv-text-container">ファイルを選択してください。</div>
+    <div id="tv-file-name"></div>
+    <div id="tv-file-path-container">
+      <div id="tv-file-path"></div>
+      <button id="tv-copy-button" onclick="tvCopyFilePath()">コピー</button>
+    </div>
+    <div id="tv-controls">
+      <button class="tv-control-button" onclick="tvPrevFile()">前へ</button>
+      <button class="tv-control-button" onclick="tvNextFile()">次へ</button>
+    </div>
+    
+    <h2>ファイルリスト</h2>
+    <div id="tv-playlist"></div>
+  </div>
+
+  <div id="media-viewer" class="module">
+    <h1>メディアビューア (画像, 動画)</h1>
+    <div id="mv-file-input-container">
+      <input type="file" id="mv-file-input" webkitdirectory directory multiple>
+    </div>
+    <div id="mv-controls-top">
+      <div id="mv-media-info">
+        <p>Total media: <span id="mv-total-media">0</span> | Current: <span id="mv-current-media">0</span></p>
+      </div>
+      <div id="mv-search-container">
+        <input type="text" id="mv-search-input" placeholder="Search by name..." oninput="mvFilterMedia()">
+      </div>
+      <div id="mv-sort-controls">
+        <label for="mv-sort-by">Sort by:</label>
+        <select id="mv-sort-by" onchange="mvSortMedia()">
+          <option value="name">Name</option>
+          <option value="date">Date</option>
+          <option value="type">Media Type</option>
+        </select>
+        <label for="mv-playback-speed">Playback Speed:</label>
+        <select id="mv-playback-speed" onchange="mvChangePlaybackSpeed()">
+          <option value="0.5">0.5x</option>
+          <option value="1" selected>1x</option>
+          <option value="1.5">1.5x</option>
+          <option value="2">2x</option>
+        </select>
+      </div>
+    </div>
+    
+    <div id="mv-media-container">メディアファイルを選択してください。</div>
+    <div id="mv-file-name"></div>
+    <div id="mv-controls">
+      <button class="mv-control-button" onclick="mvPrevMedia()">前へ</button>
+      <div>
+        <label for="mv-jump-to-input">Jump to:</label>
+        <input type="number" id="mv-jump-to-input" min="1" max="1" oninput="mvJumpToMedia()">
+      </div>
+      <button class="mv-control-button" onclick="mvNextMedia()">次へ</button>
+    </div>
+    
+    <h2>ファイルリスト</h2>
+    <div id="mv-playlist"></div>
+    
+    <div id="mv-file-structure-container">
+        <h3>ファイル構造</h3>
+        <ul id="mv-file-structure"></ul>
+    </div>
+  </div>
+
+  <div id="docx-converter" class="module">
+    <h1>Word (.docx) をテキスト (.txt) に変換</h1>
+    <input type="file" id="dc-fileInput" accept=".docx">
+    <button id="dc-convertButton">テキストに変換</button>
+    <a id="dc-downloadLink" style="display:none;">TXTをダウンロード</a>
+  </div>
+
+  <div id="non-png-detector" class="module">
+    <h1>PNG以外のファイル検出</h1>
+    <p>ディレクトリを選択すると、.pngファイル以外のファイルがリストアップされます。</p>
+    <input type="file" id="npd-fileInput" webkitdirectory directory multiple>
+    <ul id="npd-fileList"></ul>
+  </div>
+
+  <div id="video-frame-saver" class="module">
+    <h1>MP4動画の最初のフレームをPNGとして保存</h1>
+    <p>動画ファイルを選択し、「フレームを保存」ボタンを押してください。</p>
+    <input type="file" id="vfs-videoInput" accept="video/mp4,video/*">
+    <video id="vfs-video" style="display: none;" controls></video>
+    <canvas id="vfs-canvas" style="display: none;"></canvas>
+    <button id="vfs-saveFrame">フレームを保存</button>
+    <div id="vfs-downloadLink"></div>
+  </div>
+</div>
+
+<script>
+  // --- モジュール切替ロジック ---
+  function showModule(moduleId) {
+    document.querySelectorAll('.module').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('#module-selector button').forEach(el => el.classList.remove('active'));
+    
+    const moduleElement = document.getElementById(moduleId);
+    const buttonElement = document.getElementById('btn-' + moduleId.replace('-', '_'));
+
+    if (moduleElement) moduleElement.classList.add('active');
+    if (buttonElement) buttonElement.classList.add('active');
+  }
+
+  // 初期表示モジュールを設定
+  document.addEventListener('DOMContentLoaded', () => {
+    showModule('text-viewer');
+  });
+
+  // --- 1. Text Viewer (last.html) ロジック ---
+  let tvSupportedFiles = [];
+  let tvFilteredFiles = [];
+  let tvCurrentIndex = -1;
+  let tvFileContents = [];
+  let tvOriginalFileContents = [];
+
+  document.getElementById('tv-file-input').addEventListener('change', (event) => {
+    // mammoth がグローバルに定義されているか確認
+    if (typeof mammoth === 'undefined') {
+        document.getElementById('tv-text-container').innerHTML = 'エラー: mammoth.browser.min.js が見つからないため、.docx の読み込みはできません。';
+        return;
+    }
+    
+    tvSupportedFiles = Array.from(event.target.files).filter(file => file.name.endsWith('.docx') || file.name.endsWith('.txt'));
+    tvCurrentIndex = 0;
+    tvFilteredFiles = [...tvSupportedFiles];
+    tvFileContents = [];
+    tvOriginalFileContents = [];
+
+    tvSupportedFiles.forEach((file, index) => {
+      const reader = new FileReader();
+      if (file.name.endsWith('.docx')) {
+        reader.onload = (e) => {
+          mammoth.extractRawText({ arrayBuffer: e.target.result })
+            .then((result) => {
+              tvOriginalFileContents[index] = result.value;
+              tvFileContents[index] = result.value;
+              if (index === 0) tvDisplayFile();
+            });
+        };
+        reader.readAsArrayBuffer(file);
+      } else {
+        reader.onload = (e) => {
+          tvOriginalFileContents[index] = e.target.result;
+          tvFileContents[index] = e.target.result;
+          if (index === 0) tvDisplayFile();
+        };
+        reader.readAsText(file);
+      }
+    });
+
+    document.getElementById('tv-total-media').textContent = tvSupportedFiles.length;
+    tvUpdatePlaylist();
+  });
+
+  function tvDisplayFile() {
+    const textContainer = document.getElementById('tv-text-container');
+    textContainer.innerHTML = '';
+    if (tvFilteredFiles.length > 0 && tvCurrentIndex >= 0 && tvCurrentIndex < tvFilteredFiles.length) {
+      const file = tvFilteredFiles[tvCurrentIndex];
+      const contentIndex = tvSupportedFiles.indexOf(file);
+      const content = tvFileContents[contentIndex] || '読み込み中...';
+      
+      // HTMLコンテンツとして挿入してmarkタグを有効にする
+      textContainer.innerHTML = content.replace(/\n/g, '<br>'); 
+      
+      document.getElementById('tv-current-media').textContent = tvCurrentIndex + 1;
+      document.getElementById('tv-file-name').textContent = file.name;
+      document.getElementById('tv-file-path').textContent = file.webkitRelativePath;
+      tvUpdatePlaylist();
+    }
+  }
+
+  function tvNextFile() {
+    if (tvCurrentIndex < tvFilteredFiles.length - 1) {
+      tvCurrentIndex++;
+      tvDisplayFile();
+    }
+  }
+
+  function tvPrevFile() {
+    if (tvCurrentIndex > 0) {
+      tvCurrentIndex--;
+      tvDisplayFile();
+    }
+  }
+
+  function tvUpdatePlaylist() {
+    const playlist = document.getElementById('tv-playlist');
+    playlist.innerHTML = '';
+    tvFilteredFiles.forEach((file, index) => {
+      const div = document.createElement('div');
+      div.textContent = file.name;
+      div.onclick = () => {
+        tvCurrentIndex = index;
+        tvDisplayFile();
+      };
+      if (index === tvCurrentIndex) div.classList.add('current');
+      playlist.appendChild(div);
+    });
+    document.getElementById('tv-total-media').textContent = tvFilteredFiles.length;
+  }
+
+  function tvFilterText() {
+    const searchInput = document.getElementById('tv-search-input').value.toLowerCase();
+    const currentFile = tvFilteredFiles[tvCurrentIndex]; // 現在表示中のファイルを取得
+    
+    // フィルタリングされたリストを再作成（ファイル名でフィルタリング）
+    tvFilteredFiles = tvSupportedFiles.filter(file => 
+      file.name.toLowerCase().includes(searchInput) || 
+      (tvOriginalFileContents[tvSupportedFiles.indexOf(file)] || '').toLowerCase().includes(searchInput)
+    );
+    
+    // 現在のファイルがフィルタリング後のリストに存在するか確認し、インデックスを更新
+    const newCurrentIndex = tvFilteredFiles.indexOf(currentFile);
+    tvCurrentIndex = newCurrentIndex !== -1 ? newCurrentIndex : 0;
+
+    // 全ファイルの内容に対してハイライト処理
+    tvFileContents = [...tvOriginalFileContents];
+    if (searchInput !== '') {
+        tvSupportedFiles.forEach((file, index) => {
+            const content = tvOriginalFileContents[index];
+            if (content && (content.toLowerCase().includes(searchInput) || file.name.toLowerCase().includes(searchInput))) {
+                // 正規表現で検索文字列をハイライト
+                const highlightedContent = content.replace(new RegExp(searchInput.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), match => `<mark>${match}</mark>`);
+                tvFileContents[index] = highlightedContent;
+            }
+        });
+    }
+
+    tvDisplayFile();
+    tvUpdatePlaylist();
+  }
+
+  function tvCopyFilePath() {
+    const filePath = document.getElementById('tv-file-path').textContent;
+    navigator.clipboard.writeText(filePath).then(() => alert('ファイルパスがコピーされました: ' + filePath));
+  }
+  
+  // --- 2. Media Viewer (test.html) ロジック ---
+  let mvMediaFiles = [];
+  let mvFilteredMediaFiles = [];
+  let mvCurrentIndex = -1;
+  let mvMediaUrls = [];
+
+  document.getElementById('mv-file-input').addEventListener('change', (event) => {
+    mvMediaFiles = Array.from(event.target.files).filter(file =>
+      file.type.startsWith('image/') || file.type.startsWith('video/')
+    );
+    mvMediaUrls.forEach(url => URL.revokeObjectURL(url)); // 既存のURLを解放
+    mvMediaUrls = mvMediaFiles.map(file => URL.createObjectURL(file));
+    mvFilteredMediaFiles = [...mvMediaFiles];
+    mvCurrentIndex = 0;
+    document.getElementById('mv-total-media').textContent = mvMediaFiles.length;
+    document.getElementById('mv-jump-to-input').max = mvMediaFiles.length;
+    mvDisplayMedia();
+    mvUpdatePlaylist();
+    mvUpdateDirectoryView();
+  });
+
+  function mvDisplayMedia() {
+    const mediaContainer = document.getElementById('mv-media-container');
+    mediaContainer.innerHTML = '';
+    if (mvFilteredMediaFiles.length > 0 && mvCurrentIndex >= 0 && mvCurrentIndex < mvFilteredMediaFiles.length) {
+      const file = mvFilteredMediaFiles[mvCurrentIndex];
+      const url = mvMediaUrls[mvMediaFiles.indexOf(file)];
+      if (file.type.startsWith('image/')) {
+        const img = new Image();
+        img.src = url;
+        mediaContainer.appendChild(img);
+      } else if (file.type.startsWith('video/')) {
+        const video = document.createElement('video');
+        video.src = url;
+        video.controls = true;
+        video.autoplay = true;
+        mediaContainer.appendChild(video);
+        mvChangePlaybackSpeed();
+      }
+      document.getElementById('mv-current-media').textContent = mvCurrentIndex + 1;
+      document.getElementById('mv-jump-to-input').value = mvCurrentIndex + 1;
+      document.getElementById('mv-file-name').textContent = file.name;
+      mvUpdatePlaylist();
+      mvUpdateDirectoryView(file);
+    } else {
+        document.getElementById('mv-current-media').textContent = 0;
+        document.getElementById('mv-jump-to-input').value = 0;
+        document.getElementById('mv-file-name').textContent = '';
+        document.getElementById('mv-file-structure').innerHTML = '';
+        mvUpdatePlaylist();
+    }
+  }
+
+  function mvNextMedia() {
+    if (mvCurrentIndex < mvFilteredMediaFiles.length - 1) {
+      mvCurrentIndex++;
+      mvDisplayMedia();
+    }
+  }
+
+  function mvPrevMedia() {
+    if (mvCurrentIndex > 0) {
+      mvCurrentIndex--;
+      mvDisplayMedia();
+    }
+  }
+
+  function mvJumpToMedia() {
+    const inputEl = document.getElementById('mv-jump-to-input');
+    const index = parseInt(inputEl.value) - 1;
+    if (!isNaN(index) && index >= 0 && index < mvFilteredMediaFiles.length) {
+      mvCurrentIndex = index;
+      mvDisplayMedia();
+    } else if (inputEl.value !== '') {
+        // 不正な値が入力された場合、現在の値を再設定して修正
+        inputEl.value = mvCurrentIndex + 1;
+    }
+  }
+
+  function mvChangePlaybackSpeed() {
+    const video = document.querySelector('#mv-media-container video');
+    const speed = document.getElementById('mv-playback-speed').value;
+    if (video) {
+      video.playbackRate = parseFloat(speed);
+    }
+  }
+
+  function mvUpdatePlaylist() {
+    const playlist = document.getElementById('mv-playlist');
+    playlist.innerHTML = '';
+    mvFilteredMediaFiles.forEach((file, index) => {
+      const div = document.createElement('div');
+      div.textContent = file.name;
+      div.onclick = () => {
+        mvCurrentIndex = index;
+        mvDisplayMedia();
+      };
+      if (index === mvCurrentIndex) {
+        div.classList.add('current');
+      }
+      playlist.appendChild(div);
+    });
+    document.getElementById('mv-total-media').textContent = mvFilteredMediaFiles.length;
+    document.getElementById('mv-jump-to-input').max = mvFilteredMediaFiles.length;
+  }
+
+  function mvFilterMedia() {
+    const searchInput = document.getElementById('mv-search-input').value.toLowerCase();
+    mvFilteredMediaFiles = mvMediaFiles.filter(file => file.name.toLowerCase().includes(searchInput));
+    mvCurrentIndex = 0;
+    mvDisplayMedia();
+    mvUpdatePlaylist();
+  }
+
+  function mvSortMedia() {
+    const sortBy = document.getElementById('mv-sort-by').value;
+    if (sortBy === 'name') {
+      mvMediaFiles.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortBy === 'date') {
+      mvMediaFiles.sort((a, b) => a.lastModified - b.lastModified);
+    } else if (sortBy === 'type') {
+      mvMediaFiles.sort((a, b) => a.type.localeCompare(b.type));
+    }
+    mvFilteredMediaFiles = [...mvMediaFiles];
+    mvCurrentIndex = 0;
+    mvDisplayMedia();
+    mvUpdatePlaylist();
+  }
+  
+  function mvBuildDirectoryTree(files) {
+    const root = {};
+    files.forEach(file => {
+      const pathParts = file.webkitRelativePath.split('/');
+      let current = root;
+      pathParts.forEach((part, index) => {
+        if (!current[part]) {
+          current[part] = index === pathParts.length - 1 ? file : {};
+        }
+        current = current[part];
+      });
+    });
+    return root;
+  }
+
+  function mvRenderDirectoryTree(node, parentElement, currentFile = null) {
+    Object.keys(node).forEach(key => {
+      const li = document.createElement('li');
+      const isFile = node[key] instanceof File;
+      if (isFile) {
+        li.textContent = key;
+        if (currentFile && node[key] === currentFile) {
+          li.classList.add('highlighted-path');
+        }
+      } else {
+        li.textContent = key;
+        const ul = document.createElement('ul');
+        mvRenderDirectoryTree(node[key], ul, currentFile);
+        li.appendChild(ul);
+      }
+      parentElement.appendChild(li);
+    });
+  }
+
+  function mvUpdateDirectoryView(currentFile = null) {
+    const treeRoot = mvBuildDirectoryTree(mvMediaFiles);
+    const structureEl = document.getElementById('mv-file-structure');
+    structureEl.innerHTML = '';
+    mvRenderDirectoryTree(treeRoot, structureEl, currentFile);
+  }
+
+  // キーボード操作は、 Media Viewer がアクティブな場合のみ
+  document.addEventListener('keydown', (event) => {
+    if (document.getElementById('media-viewer').classList.contains('active')) {
+      if (event.code === 'ArrowRight') {
+        mvNextMedia();
+      } else if (event.code === 'ArrowLeft') {
+        mvPrevMedia();
+      }
+    } else if (document.getElementById('text-viewer').classList.contains('active')) {
+      if (event.code === 'ArrowRight') {
+        tvNextFile();
+      } else if (event.code === 'ArrowLeft') {
+        tvPrevFile();
+      }
+    }
+  });
+
+
+  // --- 3. DOCX to TXT Converter (docs.html) ロジック ---
+  document.getElementById('dc-convertButton').addEventListener('click', function() {
+      var input = document.getElementById('dc-fileInput');
+      if (input.files.length === 0) {
+          alert("Please select a .docx file.");
+          return;
+      }
+
+      var file = input.files[0];
+      var reader = new FileReader();
+
+      reader.onload = function(e) {
+          var arrayBuffer = e.target.result;
+          JSZip.loadAsync(arrayBuffer).then(function(zip) {
+              return zip.file("word/document.xml").async("text");
+          }).then(function(textContent) {
+              // XMLタグを除去してプレーンテキストにする (不完全な抽出なので注意)
+              var textOnly = textContent.replace(/<[^>]+>/g, '');  
+
+              // テキストファイルのBlobを作成
+              var blob = new Blob([textOnly], { type: 'text/plain' });
+              var downloadLink = document.getElementById('dc-downloadLink');
+              downloadLink.href = URL.createObjectURL(blob);
+              downloadLink.download = file.name.replace('.docx', '.txt');
+              downloadLink.style.display = 'block';
+              downloadLink.textContent = "TXTファイルをダウンロード (" + file.name.replace('.docx', '.txt') + ")";
+          }).catch(function(error) {
+              console.error("Error reading file:", error);
+              alert("ファイルの読み込み中にエラーが発生しました。");
+          });
+      };
+
+      reader.readAsArrayBuffer(file);
+  });
+  
+  // --- 4. Non-PNG File Detector (a.html) ロジック ---
+  document.getElementById('npd-fileInput').addEventListener('change', function(event) {
+      const files = event.target.files;
+      const fileList = document.getElementById('npd-fileList');
+      fileList.innerHTML = '';
+
+      for (let file of files) {
+          if (!file.name.toLowerCase().endsWith('.png')) {
+              const listItem = document.createElement('li');
+              const link = document.createElement('a');
+              // webkitRelativePathからファイル名を除いたディレクトリパスを取得
+              const filePath = file.webkitRelativePath.split('/').slice(0, -1).join('/');
+              // file:// スキームはセキュリティ上の制約で動作しないブラウザが多いことに注意
+              link.href = `file://${filePath}`; 
+              link.textContent = file.name;
+              link.target = "_blank";
+              listItem.appendChild(link);
+              fileList.appendChild(listItem);
+          }
+      }
+  });
+
+  // --- 5. Video Frame Saver (dougagazo.html) ロジック ---
+  const vfsVideo = document.getElementById('vfs-video');
+  const vfsCanvas = document.getElementById('vfs-canvas');
+  const vfsContext = vfsCanvas.getContext('2d');
+
+  document.getElementById('vfs-videoInput').addEventListener('change', function(event) {
+    const file = event.target.files[0];
+    const downloadLinkDiv = document.getElementById('vfs-downloadLink');
+    downloadLinkDiv.innerHTML = ''; // 以前のリンクを消す
+
+    if (file) {
+      const url = URL.createObjectURL(file);
+      vfsVideo.src = url;
+      vfsVideo.load();
+    }
+  });
+
+  document.getElementById('vfs-saveFrame').addEventListener('click', function() {
+    const downloadLinkDiv = document.getElementById('vfs-downloadLink');
+    downloadLinkDiv.innerHTML = ''; // 以前のリンクを消す
+    
+    // 動画のメタデータが読み込まれているか確認
+    if (vfsVideo.readyState >= 2) { // HAVE_CURRENT_DATA
+      vfsCaptureFrame();
+    } else {
+      vfsVideo.addEventListener('loadeddata', vfsCaptureFrame, { once: true });
+    }
+  });
+
+  function vfsCaptureFrame() {
+    // 動画を最初のフレームに移動
+    vfsVideo.currentTime = 0;
+
+    vfsVideo.addEventListener('seeked', function seekedHandler() {
+      vfsVideo.removeEventListener('seeked', seekedHandler);
+
+      // キャンバスのサイズを動画のサイズに設定
+      vfsCanvas.width = vfsVideo.videoWidth;
+      vfsCanvas.height = vfsVideo.videoHeight;
+
+      // 現在のフレームをキャンバスに描画
+      vfsContext.drawImage(vfsVideo, 0, 0, vfsCanvas.width, vfsCanvas.height);
+
+      // PNG形式で保存するためのデータURLを生成
+      const img = vfsCanvas.toDataURL('image/png');
+
+      // ダウンロードリンクをページに追加
+      const link = document.createElement('a');
+      link.href = img;
+      link.download = 'frame.png';
+      link.textContent = 'ここをクリックして画像をダウンロード';
+      document.getElementById('vfs-downloadLink').appendChild(link);
+    }, { once: true });
+  }
+
+</script>
+</body>
+</html>
